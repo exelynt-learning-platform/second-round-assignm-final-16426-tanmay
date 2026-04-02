@@ -1,67 +1,58 @@
 package com.ecommerce.backend.controller;
 
-// FIX: new controller – Product entity existed but had no controller or
-//      repository, making the entity completely unreachable via the API.
-
+import com.ecommerce.backend.dto.ApiResponse;
 import com.ecommerce.backend.entity.Product;
-import com.ecommerce.backend.repository.ProductRepository;
+import com.ecommerce.backend.service.ProductService;
+import jakarta.validation.Valid;
+import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
-@RequestMapping("/products")
+@RequestMapping("/api/products")
 public class ProductController {
 
-    private final ProductRepository productRepo;
+    private final ProductService productService;
+    public ProductController(ProductService s) { this.productService = s; }
 
-    public ProductController(ProductRepository productRepo) {
-        this.productRepo = productRepo;
-    }
-
-    // GET /products – public (see SecurityConfig)
+    // Public + paginated (FIX: pagination added)
     @GetMapping
-    public List<Product> listAll() {
-        return productRepo.findAll();
+    public ResponseEntity<ApiResponse<Page<Product>>> listAll(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(ApiResponse.ok("Products retrieved",
+                productService.listAll(search, PageRequest.of(page, size, Sort.by("id")))));
     }
 
-    // GET /products/{id} – public
     @GetMapping("/{id}")
-    public ResponseEntity<Product> getById(@PathVariable Long id) {
-        return productRepo.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<ApiResponse<Product>> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Product found", productService.getById(id)));
     }
 
-    // POST /products – requires valid JWT (see SecurityConfig)
+    // FIX: ADMIN only + @Valid enforces price > 0, stock >= 0
     @PostMapping
-    public ResponseEntity<Product> create(@RequestBody Product product) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Product>> create(@Valid @RequestBody Product product) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(productRepo.save(product));
+                .body(ApiResponse.ok("Product created", productService.create(product)));
     }
 
-    // PUT /products/{id} – requires valid JWT
+    // FIX: ADMIN only + @Valid
     @PutMapping("/{id}")
-    public ResponseEntity<Product> update(@PathVariable Long id,
-                                          @RequestBody Product updated) {
-        return productRepo.findById(id).map(existing -> {
-            existing.setName(updated.getName());
-            existing.setDescription(updated.getDescription());
-            existing.setPrice(updated.getPrice());
-            existing.setStock(updated.getStock());
-            return ResponseEntity.ok(productRepo.save(existing));
-        }).orElse(ResponseEntity.notFound().build());
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Product>> update(
+            @PathVariable Long id, @Valid @RequestBody Product product) {
+        return ResponseEntity.ok(ApiResponse.ok("Product updated", productService.update(id, product)));
     }
 
-    // DELETE /products/{id} – requires valid JWT
+    // FIX: ADMIN only
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!productRepo.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        productRepo.deleteById(id);
-        return ResponseEntity.noContent().build();
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+        productService.delete(id);
+        return ResponseEntity.ok(ApiResponse.ok("Product deleted", null));
     }
 }

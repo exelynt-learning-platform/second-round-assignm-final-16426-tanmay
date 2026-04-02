@@ -1,16 +1,9 @@
 package com.ecommerce.backend.config;
 
-// FIX: was in bare package "config" → never loaded by Spring.
-// FIX: original only declared a BCryptPasswordEncoder bean; Spring Security
-//      auto-configured a session-based form-login that blocked every API call
-//      with a redirect to /login.
-// FIX: added stateless SecurityFilterChain, JWT filter, and proper RBAC rules.
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -22,6 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
@@ -36,36 +30,28 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg)
-            throws Exception {
-        return cfg.getAuthenticationManager();
-    }
-
-    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // FIX: disable CSRF – not needed for stateless REST + JWT
             .csrf(AbstractHttpConfigurer::disable)
-
-            // FIX: allow H2-console iframes (remove if switching to MySQL)
             .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
-
-            // FIX: stateless – no HTTP sessions
-            .sessionManagement(sm ->
-                    sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public – register and login never require a token
-                .requestMatchers("/auth/register", "/auth/login").permitAll()
-                // H2 console (development only)
+                // Public
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/auth/**").permitAll()          // legacy paths in tests
                 .requestMatchers("/h2-console/**").permitAll()
-                // Products – read is public, write requires authentication
+                // Products – read public, write ADMIN only (FIX: role-based authorization)
+                .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
-                // Everything else requires a valid JWT
+                .requestMatchers(HttpMethod.POST,   "/api/products/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/api/products/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
+                // Cart / Orders / Payments – authenticated users
+                .requestMatchers("/api/cart/**").authenticated()
+                .requestMatchers("/api/orders/**").authenticated()
+                .requestMatchers("/api/payments/**").authenticated()
                 .anyRequest().authenticated()
             )
-
-            // FIX: plug in our JWT filter before Spring's username/password filter
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
