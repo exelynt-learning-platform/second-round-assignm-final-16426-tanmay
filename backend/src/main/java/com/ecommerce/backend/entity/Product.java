@@ -1,9 +1,7 @@
 package com.ecommerce.backend.entity;
 
-// FIX: was in bare package "entity" → outside Spring component scan.
-// Moved to com.ecommerce.backend.entity so @Entity is detected by Hibernate.
-
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 
 @Entity
 @Table(name = "products")
@@ -13,29 +11,39 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Product name is required")
+    @Size(min = 2, max = 200, message = "Name must be 2-200 characters")
     @Column(nullable = false)
     private String name;
 
+    @Size(max = 1000, message = "Description must not exceed 1000 characters")
     private String description;
 
-    private double price;
+    @NotNull(message = "Price is required")
+    @DecimalMin(value = "0.01", message = "Price must be greater than 0")
+    @Column(nullable = false)
+    private Double price;
 
-    private int stock;
+    @NotNull(message = "Stock is required")
+    @Min(value = 0, message = "Stock cannot be negative")
+    @Column(nullable = false)
+    private Integer stock;
 
-    // ── Getters & Setters ─────────────────────────────────────────────────────
+    @Column(name = "image_url")
+    private String imageUrl;
 
-    public Long getId()                       { return id; }
-    public void setId(Long id)                { this.id = id; }
+    public Product() {}
 
-    public String getName()                   { return name; }
-    public void setName(String name)          { this.name = name; }
-
-    public String getDescription()                    { return description; }
-    public void setDescription(String description)    { this.description = description; }
-
-    public double getPrice()                  { return price; }
-    public void setPrice(double price)        { this.price = price; }
-
-    public int getStock()                     { return stock; }
-    public void setStock(int stock)           { this.stock = stock; }
+    public Long getId()                    { return id; }
+    public void setId(Long id)             { this.id = id; }
+    public String getName()                { return name; }
+    public void setName(String n)          { this.name = n; }
+    public String getDescription()         { return description; }
+    public void setDescription(String d)   { this.description = d; }
+    public Double getPrice()               { return price; }
+    public void setPrice(Double p)         { this.price = p; }
+    public Integer getStock()              { return stock; }
+    public void setStock(Integer s)        { this.stock = s; }
+    public String getImageUrl()            { return imageUrl; }
+    public void setImageUrl(String u)      { this.imageUrl = u; }
 }

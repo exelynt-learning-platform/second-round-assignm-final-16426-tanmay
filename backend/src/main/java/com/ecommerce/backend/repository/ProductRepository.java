@@ -1,13 +1,14 @@
 package com.ecommerce.backend.repository;
-
-// FIX: entirely new file – Product entity existed but had no repository,
-//      making it impossible to persist or query products.
-
 import com.ecommerce.backend.entity.Product;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
+import java.util.Optional;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
-    // JpaRepository provides findAll, findById, save, deleteById, existsById out-of-the-box
+    Optional<Product> findByNameIgnoreCase(String name);
+    boolean existsByNameIgnoreCase(String name);
+    Page<Product> findAll(Pageable pageable);
+    Page<Product> findByNameContainingIgnoreCase(String name, Pageable pageable);
 }

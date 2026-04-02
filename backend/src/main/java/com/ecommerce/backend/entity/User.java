@@ -1,19 +1,10 @@
 package com.ecommerce.backend.entity;
 
-// FIX: was split across TWO files in TWO different packages:
-//   • entity.User           – full JPA entity but in a bare "entity" package
-//                             (outside Spring's component scan)
-//   • com.ecommerce.backend.entity.User – stub with only null-returning methods,
-//                             missing @Entity, @Table, all fields, and all real getters/setters
-//
-// RESULT: JPA could not find any managed @Entity class → startup failure.
-//
-// FIX: one canonical User class in the correct package with all fields and
-//      proper JPA annotations.
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -23,48 +14,46 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, max = 100, message = "Name must be 2-100 characters")
     private String name;
 
-    @Email
-    @NotBlank
+    @NotBlank(message = "Email is required")
+    @Email(message = "Must be a valid email address")
     @Column(unique = true, nullable = false)
     private String email;
 
-    // NOTE: this field stores the BCrypt hash, never the plain-text password.
+    @NotBlank(message = "Password is required")
     @Column(nullable = false)
+    @JsonIgnore
     private String password;
 
-    // Stores a simple role string e.g. "USER" or "ADMIN".
-    // For richer RBAC use a Role entity + ManyToMany instead.
-    private String role;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role = Role.USER;
 
-    // ── Constructors ──────────────────────────────────────────────────────────
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<Cart> carts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<Order> orders = new ArrayList<>();
+
+    public enum Role { USER, ADMIN }
 
     public User() {}
 
-    public User(Long id, String name, String email, String password, String role) {
-        this.id       = id;
-        this.name     = name;
-        this.email    = email;
-        this.password = password;
-        this.role     = role;
-    }
-
-    // ── Getters & Setters ─────────────────────────────────────────────────────
-
-    public Long getId()                { return id; }
-    public void setId(Long id)         { this.id = id; }
-
-    public String getName()            { return name; }
-    public void setName(String name)   { this.name = name; }
-
-    public String getEmail()           { return email; }
-    public void setEmail(String email) { this.email = email; }
-
-    public String getPassword()               { return password; }
-    public void setPassword(String password)  { this.password = password; }
-
-    public String getRole()            { return role; }
-    public void setRole(String role)   { this.role = role; }
+    public Long getId()               { return id; }
+    public void setId(Long id)        { this.id = id; }
+    public String getName()           { return name; }
+    public void setName(String n)     { this.name = n; }
+    public String getEmail()          { return email; }
+    public void setEmail(String e)    { this.email = e; }
+    public String getPassword()       { return password; }
+    public void setPassword(String p) { this.password = p; }
+    public Role getRole()             { return role; }
+    public void setRole(Role r)       { this.role = r; }
+    public List<Cart> getCarts()      { return carts; }
+    public List<Order> getOrders()    { return orders; }
 }
